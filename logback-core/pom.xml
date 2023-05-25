@@ -50,6 +50,10 @@
       <artifactId>joda-time</artifactId>
       <scope>test</scope>
     </dependency>
+    <dependency>
+      <groupId>org.crac</groupId>
+      <artifactId>crac</artifactId>
+    </dependency>
   </dependencies>
 
   <build>

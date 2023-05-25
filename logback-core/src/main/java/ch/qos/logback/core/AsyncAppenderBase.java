@@ -16,6 +16,9 @@ package ch.qos.logback.core;
 import ch.qos.logback.core.spi.AppenderAttachable;
 import ch.qos.logback.core.spi.AppenderAttachableImpl;
 import ch.qos.logback.core.util.InterruptUtil;
+import org.crac.Context;
+import org.crac.Resource;
+import org.crac.Core;
 
 import java.util.Iterator;
 import java.util.concurrent.ArrayBlockingQueue;
@@ -37,7 +40,7 @@ import java.util.concurrent.BlockingQueue;
  * @author Torsten Juergeleit
  * @since 1.0.4
  */
-public class AsyncAppenderBase<E> extends UnsynchronizedAppenderBase<E> implements AppenderAttachable<E> {
+public class AsyncAppenderBase<E> extends UnsynchronizedAppenderBase<E> implements AppenderAttachable<E>,Resource {
 
     AppenderAttachableImpl<E> aai = new AppenderAttachableImpl<E>();
     BlockingQueue<E> blockingQueue;
@@ -87,6 +90,10 @@ public class AsyncAppenderBase<E> extends UnsynchronizedAppenderBase<E> implemen
     protected void preprocess(E eventObject) {
     }
 
+    public AsyncAppenderBase() {
+        Core.getGlobalContext().register(this);
+    }
+
     @Override
     public void start() {
         if (isStarted())
@@ -104,6 +111,12 @@ public class AsyncAppenderBase<E> extends UnsynchronizedAppenderBase<E> implemen
         if (discardingThreshold == UNDEFINED)
             discardingThreshold = queueSize / 5;
         addInfo("Setting discardingThreshold to " + discardingThreshold);
+
+        //a terminated thread cannot be start again.so create a new thread instead
+        if (worker.getState() == Thread.State.TERMINATED) {
+            worker = new Worker();
+        }
+
         worker.setDaemon(true);
         worker.setName("AsyncAppender-Worker-" + getName());
         // make sure this instance is marked as "started" before staring the worker Thread
@@ -275,6 +288,16 @@ public class AsyncAppenderBase<E> extends UnsynchronizedAppenderBase<E> implemen
 
     public boolean detachAppender(String name) {
         return aai.detachAppender(name);
+    }
+
+    @Override
+    public void beforeCheckpoint(Context<? extends Resource> context) throws Exception {
+        this.stop();
+    }
+
+    @Override
+    public void afterRestore(Context<? extends Resource> context) throws Exception {
+        this.start();
     }
 
     class Worker extends Thread {
